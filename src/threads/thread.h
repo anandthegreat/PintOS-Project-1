@@ -88,6 +88,11 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+
+    /* $$$$ Our magical changes here $$$$ */
+    int64_t sleepingtime;  //
+    /* $$$$ Our magical changes end  $$$$ */
+
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -137,5 +142,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* $$$$ Our magical changes here */
+bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux);
+/* $$$$ Our magical changes end  */
 
 #endif /* threads/thread.h */

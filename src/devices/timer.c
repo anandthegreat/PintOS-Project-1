@@ -18,6 +18,10 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
+/* $$$$ Our magical changes here $$$$ */
+struct list sleeping_threads;
+/* $$$$ Our magical changes end  $$$$ */
+
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -35,7 +39,10 @@ static void real_time_delay (int64_t num, int32_t denom);
    and registers the corresponding interrupt. */
 void
 timer_init (void) 
-{
+{ /* $$$$ Our magical changes here $$$$ */
+  list_init(&sleeping_threads);
+  /* $$$$ Our magical changes end  $$$$ */
+
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -93,8 +100,24 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  /* $$$$ Our magical changes here $$$$ */
+
+  if(ticks>0){  //can't sleep for less than 0 ticks -don't fool me
+
+    enum intr_level old_level;
+    old_level=intr_disable();   //disable interrupts to prevent racing conditions
+    struct thread *cur=thread_current();
+    cur->sleepingtime= (ticks + timer_ticks());   //sleep for "ticks" ticks   
+    /*insert this thread in sleeping threads list and sort according to its sleeptime (using sleeptime_comparator)*/
+    list_insert_ordered (&sleeping_threads,&cur->elem,sleeptime_comparator,NULL);
+    thread_block();       //block this thread
+    intr_set_level(old_level);  //restore interrupt level
+
+  }
+
+  /* $$$$ Our magical changes end  $$$$ */
+  
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -173,6 +196,26 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  /* $$$$ Our magical changes here $$$$ */
+  
+  struct list_elem *front;
+  struct thread *entry;
+  while(true){
+    if(list_empty(&sleeping_threads)==true)
+      break;
+
+    front=list_front(&sleeping_threads);
+    entry=list_entry(front,struct thread,elem);
+    if(entry->sleepingtime>ticks)
+      break;
+    else{
+      list_remove(front);
+      thread_unblock(entry);
+    }
+
+  }
+
+  /* $$$$ Our magical changes end  $$$$ */
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -245,3 +288,4 @@ real_time_delay (int64_t num, int32_t denom)
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
+

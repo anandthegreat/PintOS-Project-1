@@ -579,6 +579,19 @@ allocate_tid (void)
 
   return tid;
 }
+
+/* $$$$ Our magical changes here */
+bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux)
+{
+  struct thread *thread_one = list_entry (a, struct thread, elem); //find this list element a 
+  struct thread *thread_two = list_entry (b, struct thread, elem); //find this list element b
+  if(thread_one->sleepingtime< thread_two->sleepingtime)
+    return true;
+  else return false;
+}
+/* $$$$ Our magical changes end  */
+
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
