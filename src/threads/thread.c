@@ -202,12 +202,6 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  /* $$$$ Our magical changes here  */
-  //if this thread has greater priority, immediately yield running thread
-  if(t->priority > thread_current() -> priority)
-    thread_yield();
-  
-  /* $$$$ Our magical changes end  */
   
   return tid;
 }
@@ -246,10 +240,21 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   /* $$$$ Our magical changes here  */
-  list_insert_ordered (&ready_list, &t->elem, priority_comparator, NULL);
+  list_insert_ordered (&ready_list, &t->elem, (list_less_func *) &priority_comparator, NULL);
   //now new threads will be added to ready list according to thier priority instead of simple pushback
   /* $$$$ Our magical changes end  */
   t->status = THREAD_READY;
+  
+  /* $$$$ Our magical changes here */
+
+  struct thread *runningThread=thread_current();
+  if(runningThread!=idle_thread){
+    if(t->priority >runningThread->priority)    //can't use priority_comparator as it takes list elements
+      thread_yield();
+
+  }
+  /* $$$$ Our magical changes end  */
+
   intr_set_level (old_level);
 }
 
@@ -320,7 +325,7 @@ thread_yield (void)
   old_level = intr_disable ();
   /* $$$$ Our magical changes here */
   if (cur != idle_thread) 
-    list_insert_ordered (&ready_list, &cur->elem,priority_comparator,NULL);
+    list_insert_ordered (&ready_list, &cur->elem,(list_less_func *) &priority_comparator,NULL);
   //removed simple list push_back, now inserted in sorted order according to priority
   /* $$$$ Our magical changes end  */
   cur->status = THREAD_READY;
