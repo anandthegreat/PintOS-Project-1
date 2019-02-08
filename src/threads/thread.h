@@ -145,6 +145,7 @@ int thread_get_load_avg (void);
 
 /* $$$$ Our magical changes here */
 bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux);
+bool priority_comparator(struct list_elem *a, struct list_elem *b, void *aux);
 /* $$$$ Our magical changes end  */
 
 #endif /* threads/thread.h */

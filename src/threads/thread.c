@@ -202,6 +202,13 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  /* $$$$ Our magical changes here  */
+  //if this thread has greater priority, immediately yield running thread
+  if(t->priority > thread_current() -> priority)
+    thread_yield();
+  
+  /* $$$$ Our magical changes end  */
+  
   return tid;
 }
 
@@ -238,7 +245,10 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  /* $$$$ Our magical changes here  */
+  list_insert_ordered (&ready_list, &t->elem, priority_comparator, NULL);
+  //now new threads will be added to ready list according to thier priority instead of simple pushback
+  /* $$$$ Our magical changes end  */
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -308,8 +318,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+  /* $$$$ Our magical changes here */
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem,priority_comparator,NULL);
+  //removed simple list push_back, now inserted in sorted order according to priority
+  /* $$$$ Our magical changes end  */
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -589,6 +602,16 @@ bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux)
     return true;
   else return false;
 }
+
+bool priority_comparator(struct list_elem *a, struct list_elem *b, void *aux)
+{
+  struct thread *thread_one = list_entry (a, struct thread, elem);  //find this list element a
+  struct thread *thread_two = list_entry (b, struct thread, elem);  //find this list element b 
+  if(thread_one->priority> thread_two->priority)
+    return true;
+  else return false;
+}
+
 /* $$$$ Our magical changes end  */
 
 
