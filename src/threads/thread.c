@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -11,7 +12,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "fxpt.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -59,8 +59,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
-
-extern struct list sleep_list;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -137,7 +135,6 @@ thread_tick (void)
   else
     kernel_ticks++;
 
- 
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -175,7 +172,6 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-  enum intr_level old_level;
 
   ASSERT (function != NULL);
 
@@ -187,11 +183,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
-  /* Prepare thread for first run by initializing its stack.
-     Do this atomically so intermediate values for the 'stack' 
-     member cannot be observed. */
-  old_level = intr_disable ();
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -208,16 +199,19 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  intr_set_level (old_level);
-
   /* Add to run queue. */
   thread_unblock (t);
 
-  old_level = intr_disable ();
-  if(t->priority > thread_current()->priority)
-    thread_yield();
+  /* $$$$ Our magical changes here */
+  enum intr_level old_level = intr_disable ();
+  struct thread *runningThread=thread_current();
+  if(runningThread!=idle_thread){
+    if(t->priority >runningThread->priority)    //can't use priority_comparator as it takes list elements
+      thread_yield();
 
+  }  
   intr_set_level (old_level);
+  /* $$$$ Our magical changes end  */
 
   return tid;
 }
@@ -322,22 +316,44 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
-
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread)
-  {
-    list_push_back (&ready_list, &cur->elem);
-    list_sort (&ready_list, priority_comparator, NULL);
-  }
+  /* $$$$ Our magical changes here */
+  if (cur != idle_thread) 
+    list_insert_ordered (&ready_list, &cur->elem,(list_less_func *) &priority_comparator,NULL);
+  //removed simple list push_back, now inserted in sorted order according to priority
+  /* $$$$ Our magical changes end  */
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
 }
+
+/* $$$$ Our magical changes here */
+bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux)
+{
+  struct thread *thread_one = list_entry (a, struct thread, elem); //find this list element a 
+  struct thread *thread_two = list_entry (b, struct thread, elem); //find this list element b
+  if(thread_one->sleepingtime< thread_two->sleepingtime)
+    return true;
+  else return false;
+}
+
+bool priority_comparator(struct list_elem *a, struct list_elem *b, void *aux)
+{
+  struct thread *thread_one = list_entry (a, struct thread, elem);  //find this list element a
+  struct thread *thread_two = list_entry (b, struct thread, elem);  //find this list element b 
+  if(thread_one->priority> thread_two->priority)
+    return true;
+  else return false;
+}
+
+/* $$$$ Our magical changes end  */
+
+
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
@@ -360,14 +376,16 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  enum intr_level old_level;
 
-  old_level = intr_disable ();
+
+  /* $$$$ Our magical changes here */
+  enum intr_level old_level;
+  old_level=intr_disable();
   if(list_empty(&thread_current()->pot_donors))
-  {
-    thread_current()->priority = new_priority; 
-    thread_current()->basepriority = new_priority;
-  }
+    { 
+      thread_current()->priority = new_priority; 
+      thread_current()->basepriority = new_priority;
+    }
   else if(new_priority > thread_current()->priority)
   {
     thread_current()->priority = new_priority;
@@ -384,7 +402,10 @@ thread_set_priority (int new_priority)
     if(fthread->priority > thread_current ()->priority)
       thread_yield();
   }
-  intr_set_level (old_level);
+  intr_set_level(old_level);
+
+  /* $$$$ Our magical changes end  */
+
 }
 
 /* Returns the current thread's priority. */
@@ -498,6 +519,8 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
+  enum intr_level old_level;
+
   ASSERT (t != NULL);
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
@@ -508,11 +531,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->basepriority = priority;
-  t->locker = NULL;
-  t->blocked = NULL;
-  list_init (&t->pot_donors);
+  /* $$$$ Our magical changes here */
+  t->basepriority=priority;
+  t->locker=NULL; 
+  t->blocked=NULL;
+  list_init(&t->pot_donors);
+  /* $$$$ Our magical changes end  */
+  old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  intr_set_level (old_level);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -628,21 +655,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-bool sleeptime_comparator(struct list_elem *first, struct list_elem *second, void *aux)
-{
-  struct thread *fthread = list_entry (first, struct thread, elem);
-  struct thread *sthread = list_entry (second, struct thread, elem);
-
-  return fthread->sleepingtime < sthread->sleepingtime;
-
-}
-
-bool priority_comparator(struct list_elem *first, struct list_elem *second, void *aux)
-{
-  struct thread *fthread = list_entry (first, struct thread, elem);
-  struct thread *sthread = list_entry (second, struct thread, elem);
-
-  return fthread->priority > sthread->priority;
-
-}

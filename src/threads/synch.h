@@ -41,7 +41,9 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-bool conditional_var_comparator(struct list_elem *first, struct list_elem *second, void *aux);
+/* $$$$ Our magical changes here */
+bool conditional_var_comparator(struct list_elem *a,struct list_elem *b,void *aux);
+/* $$$$ Our magical changes end  */
 
 /* Optimization barrier.
 
