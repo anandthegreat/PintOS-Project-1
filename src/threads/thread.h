@@ -80,7 +80,7 @@ typedef int tid_t;
    semaphore wait list (synch.c).  It can be used these two ways
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
-   blocked state is on a semaphore wait list. */
+   waiting_on_lock state is on a semaphore wait list. */
 struct thread
   {
     /* Owned by thread.c. */
@@ -93,10 +93,10 @@ struct thread
     /* $$$$ Our magical changes here $$$$ */
     int64_t sleepingtime;  //
     int basepriority;
-    struct thread *locker;
-    struct list pot_donors;
-    struct lock *blocked;
-    struct list_elem donorelem;
+    struct thread *locker_thread;    //lock I am waiting for is acquired by this thread
+    struct list donation_list;       //list of all donated priorities (to me)
+    struct lock *waiting_on_lock;    //lock on which I am waiting
+    struct list_elem donorelem;      //list element for donations_list
     /* $$$$ Our magical changes end  $$$$ */
 
     struct list_elem allelem;           /* List element for all threads list. */

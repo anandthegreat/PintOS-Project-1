@@ -216,26 +216,26 @@ lock_acquire (struct lock *lock)
   old_level= intr_disable ();
 
   if(lock->holder==NULL)
-    thread_current()->locker = NULL;  //waiting for nobody i.e., not stopped/locked due to other thread acquiring this lock
+    thread_current()->locker_thread = NULL;  //waiting for nobody i.e., not stopped/locked due to other thread acquiring this lock
 
   else    //some thread is already holding this lock
   {
-    thread_current()->locker= lock->holder;   //current lock's holder is locking me
-    list_push_front(&lock->holder->pot_donors,&thread_current()->donorelem);    //will be donating priority 
+    thread_current()->locker_thread= lock->holder;   //current lock's holder is locking me
+    list_push_front(&lock->holder->donation_list,&thread_current()->donorelem);    //will be donating priority 
 
     struct thread *cur_thread= thread_current();
-    cur_thread->blocked= lock;    //blocked for this lock
+    cur_thread->waiting_on_lock= lock;    //waiting_on_lock for this lock
     
-    while(cur_thread->locker!=NULL)       //while the lock acquirer does not releases lock
+    while(cur_thread->locker_thread!=NULL)       //while the lock acquirer does not releases lock
     {
       /*
       If my priority is higher, I donate to lock acquirer so that it finishes it's execution
       and releases the lock
       */
-      if(cur_thread->priority >cur_thread->locker->priority)  
+      if(cur_thread->priority >cur_thread->locker_thread->priority)  
       {
-        cur_thread->locker->priority=cur_thread->priority;  // $$$$$ ACTUAL PRIORITY DONATION HERE $$$$$$
-        cur_thread= cur_thread->locker;       //now running thread is the thread acquiring lock
+        cur_thread->locker_thread->priority=cur_thread->priority;  // $$$$$ ACTUAL PRIORITY DONATION HERE $$$$$$
+        cur_thread= cur_thread->locker_thread;       //now running thread is the thread acquiring lock
         //thread_yield();
       } 
     }
@@ -293,23 +293,23 @@ lock_release (struct lock *lock)
   enum intr_level old_level;
   old_level=intr_disable ();
 
-  if(!list_empty(&thread_current()->pot_donors)){
+  if(!list_empty(&thread_current()->donation_list)){
 
 
     struct list_elem *iter;
-    for (iter = list_begin(&thread_current()->pot_donors); iter!=list_end(&thread_current()->pot_donors);iter= list_next(iter))
+    for (iter = list_begin(&thread_current()->donation_list); iter!=list_end(&thread_current()->donation_list);iter= list_next(iter))
     {
-      if(list_entry (iter, struct thread, donorelem)->blocked ==lock)    // if this thread was blocked for this lock
+      if(list_entry (iter, struct thread, donorelem)->waiting_on_lock ==lock)    // if this thread was waiting_on_lock for this lock
       {
         list_remove(iter);        //  remove from the list of priority donators
-        list_entry(iter, struct thread, donorelem)->blocked = NULL;     //  unblock this donator
+        list_entry(iter, struct thread, donorelem)->waiting_on_lock = NULL;     //  unblock this donator
       }
       else continue;
     }
 
-    struct thread *max_donor= list_entry(list_begin(&thread_current()->pot_donors),struct thread, donorelem);
+    struct thread *max_donor= list_entry(list_begin(&thread_current()->donation_list),struct thread, donorelem);
 
-    for (iter = list_begin(&thread_current()->pot_donors); iter!=list_end(&thread_current()->pot_donors);iter= list_next(iter))
+    for (iter = list_begin(&thread_current()->donation_list); iter!=list_end(&thread_current()->donation_list);iter= list_next(iter))
     {
       if(list_entry (iter, struct thread, donorelem)->priority > max_donor->priority)
         max_donor=list_entry(iter,struct thread,donorelem);

@@ -232,8 +232,8 @@ thread_block (void)
   schedule ();
 }
 
-/* Transitions a blocked thread T to the ready-to-run state.
-   This is an error if T is not blocked.  (Use thread_yield() to
+/* Transitions a waiting_on_lock thread T to the ready-to-run state.
+   This is an error if T is not waiting_on_lock.  (Use thread_yield() to
    make the running thread ready.)
 
    This function does not preempt the running thread.  This can
@@ -393,7 +393,7 @@ thread_set_priority (int new_priority)
   
   thread_current()->basepriority = new_priority;
 
-  if(list_empty(&thread_current()->pot_donors) || new_priority > thread_current()->priority)
+  if(list_empty(&thread_current()->donation_list) || new_priority > thread_current()->priority)
   { 
       thread_current()->priority = new_priority; 
   }
@@ -517,7 +517,7 @@ is_thread (struct thread *t)
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-/* Does basic initialization of T as a blocked thread named
+/* Does basic initialization of T as a waiting_on_lock thread named
    NAME. */
 static void
 init_thread (struct thread *t, const char *name, int priority)
@@ -536,10 +536,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   /* $$$$ Our magical changes here */
-  list_init(&t->pot_donors);
+  list_init(&t->donation_list);
   t->basepriority=priority;
-  t->locker=NULL; 
-  t->blocked=NULL;
+  t->locker_thread=NULL; 
+  t->waiting_on_lock=NULL;
   
   /* $$$$ Our magical changes end  */
   old_level = intr_disable ();
