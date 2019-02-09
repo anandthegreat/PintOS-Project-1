@@ -91,6 +91,11 @@ struct thread
 
     /* $$$$ Our magical changes here $$$$ */
     int64_t sleepingtime;  //
+    int basepriority;
+    struct thread *locker;
+    struct list pot_donors;
+    struct lock *blocked;
+    struct list_elem donorelem;
     /* $$$$ Our magical changes end  $$$$ */
 
     struct list_elem allelem;           /* List element for all threads list. */

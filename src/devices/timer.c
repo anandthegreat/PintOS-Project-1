@@ -102,7 +102,7 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
 
   /* $$$$ Our magical changes here $$$$ */
-
+  
   if(ticks>0){  //can't sleep for less than 0 ticks -don't fool me
 
     enum intr_level old_level;

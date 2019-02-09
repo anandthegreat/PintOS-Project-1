@@ -22,10 +22,6 @@ struct lock
   {
     struct thread *holder;      /* Thread holding lock (for debugging). */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
-
-    /* $$$$ Our magical changes here */
-    struct list waiters;      //list of waiting threads for lock, similar to waiters list in semaphore and condition variables
-    /* $$$$ Our magical changes end  */
   };
 
 void lock_init (struct lock *);
@@ -44,6 +40,8 @@ void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
+
+bool conditional_var_comparator(struct list_elem *first, struct list_elem *second, void *aux);
 
 /* Optimization barrier.
 
