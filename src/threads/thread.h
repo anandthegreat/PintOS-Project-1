@@ -19,6 +19,7 @@ enum thread_status
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
+
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
@@ -151,6 +152,7 @@ int thread_get_load_avg (void);
 /* $$$$ Our magical changes here */
 bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux);
 bool priority_comparator(struct list_elem *a, struct list_elem *b, void *aux);
+bool priority_comparator_reverse(struct list_elem *a, struct list_elem *b, void *aux);
 /* $$$$ Our magical changes end  */
 
 #endif /* threads/thread.h */

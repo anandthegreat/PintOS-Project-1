@@ -135,7 +135,7 @@ thread_tick (void)
   else
     kernel_ticks++;
 
-  /* Enforce preemption. */
+ /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 }
@@ -249,8 +249,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
-  list_sort (&ready_list, priority_comparator, NULL);
+  /* $$$$ Our magical changes here $$$$ */
+  list_insert_ordered (&ready_list, &t->elem,(list_less_func *) &priority_comparator,NULL);
+  /* $$$$ Our magical changes end $$$$ */
   t->status = THREAD_READY;
 
   intr_set_level (old_level);
@@ -342,6 +343,15 @@ bool sleeptime_comparator(struct list_elem *a, struct list_elem *b, void *aux)
   else return false;
 }
 
+bool priority_comparator_reverse(struct list_elem *a, struct list_elem *b, void *aux){
+  struct thread *thread_one = list_entry (a, struct thread, elem);  //find this list element a
+  struct thread *thread_two = list_entry (b, struct thread, elem);  //find this list element b 
+  if(thread_one->priority< thread_two->priority)
+    return true;
+  else return false;
+
+}
+
 bool priority_comparator(struct list_elem *a, struct list_elem *b, void *aux)
 {
   struct thread *thread_one = list_entry (a, struct thread, elem);  //find this list element a
@@ -377,31 +387,24 @@ void
 thread_set_priority (int new_priority) 
 {
 
-
   /* $$$$ Our magical changes here */
   enum intr_level old_level;
   old_level=intr_disable();
-  if(list_empty(&thread_current()->pot_donors))
-    { 
+  
+  thread_current()->basepriority = new_priority;
+
+  if(list_empty(&thread_current()->pot_donors) || new_priority > thread_current()->priority)
+  { 
       thread_current()->priority = new_priority; 
-      thread_current()->basepriority = new_priority;
-    }
-  else if(new_priority > thread_current()->priority)
-  {
-    thread_current()->priority = new_priority;
-    thread_current()->basepriority = new_priority;
   }
-  else
-    thread_current()->basepriority = new_priority;
 
   if(!list_empty(&ready_list))
   {
-    struct list_elem *front = list_front(&ready_list);
-    struct thread *fthread = list_entry (front, struct thread, elem);
-
-    if(fthread->priority > thread_current ()->priority)
+    struct thread *front = list_entry (list_front(&ready_list), struct thread, elem);
+    if(front->priority > thread_current ()->priority)
       thread_yield();
   }
+  
   intr_set_level(old_level);
 
   /* $$$$ Our magical changes end  */
@@ -531,11 +534,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
   /* $$$$ Our magical changes here */
+  list_init(&t->pot_donors);
   t->basepriority=priority;
   t->locker=NULL; 
   t->blocked=NULL;
-  list_init(&t->pot_donors);
+  
   /* $$$$ Our magical changes end  */
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
